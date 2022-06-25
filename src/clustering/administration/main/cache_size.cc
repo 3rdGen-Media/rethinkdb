@@ -320,7 +320,11 @@ uint64_t get_avail_mem_size() {
                 "as if it were unavailable.");
 
             // This just returns what /proc/meminfo would report as "MemFree".
+#ifdef __FreeBSD__
+            uint64_t avail_mem_pages = sysconf(_SC_PHYS_PAGES);
+#else
             uint64_t avail_mem_pages = sysconf(_SC_AVPHYS_PAGES);
+#endif
             return avail_mem_pages * page_size;
         }
     }

@@ -36,13 +36,23 @@ void timer_kqueue_provider_t::schedule_oneshot(const int64_t next_time_in_nanos,
     const int64_t wait_nanos = std::max<int64_t>(1, time_difference);
 
     struct kevent64_s event;
+
+#ifdef __FreeBSD__
+    EV_SET(&event, 99, EVFILT_TIMER, EV_ADD | EV_ONESHOT, NOTE_NSECONDS, wait_nanos, 0);
+#else
     EV_SET64(&event, 99, EVFILT_TIMER, EV_ADD | EV_ONESHOT, NOTE_NSECONDS, wait_nanos, 0, 0, 0);
+#endif
 
     // Setting the timeout to zero makes this a non-blocking call.
     struct timespec timeout;
     timeout.tv_sec = 0;
     timeout.tv_nsec = 0;
+
+#ifdef __FreeBSD__
+    const int res = kevent64(kq_fd_, &event, 1, nullptr, 0, &timeout);
+#else
     const int res = kevent64(kq_fd_, &event, 1, nullptr, 0, 0, &timeout);
+#endif
     guarantee_err(res != -1, "kevent64 failed when making timer");
 
     callback_ = cb;
@@ -50,24 +60,40 @@ void timer_kqueue_provider_t::schedule_oneshot(const int64_t next_time_in_nanos,
 
 void timer_kqueue_provider_t::unschedule_oneshot() {
     struct kevent64_s event;
-    EV_SET64(&event, 99, EVFILT_TIMER, EV_DELETE, 0, 0, 0, 0, 0);
 
+#ifdef __FreeBSD__
+    EV_SET(&event, 99, EVFILT_TIMER, EV_DELETE, 0, 0, 0);
+#else
+    EV_SET64(&event, 99, EVFILT_TIMER, EV_DELETE, 0, 0, 0, 0, 0);
+#endif
     struct timespec timeout;
     timeout.tv_sec = 0;
     timeout.tv_nsec = 0;
+
+#ifdef __FreeBSD__
+    const int res = kevent64(kq_fd_, &event, 1, nullptr, 0, &timeout);
+#else
     const int res = kevent64(kq_fd_, &event, 1, nullptr, 0, 0, &timeout);
+#endif
     guarantee_err(res != -1, "kevent64 failed when deleting timer");
 
     callback_ = nullptr;
 }
 
 void debug_print(printf_buffer_t *buf, const struct kevent64_s& event) {
+#ifdef __FREEBSD__
+    buf->appendf("kevent{ident=%" PRIu64 ", filter=%" PRIi16 ", flags=%" PRIu16
+                 ", fflags=%" PRIu32 ", data=%" PRIi64 ", udata=%" PRIu64
+                 event.ident, event.filter, event.flags,
+                 event.fflags, event.data, event.udata);
+#else
     buf->appendf("kevent64_s{ident=%" PRIu64 ", filter=%" PRIi16 ", flags=%" PRIu16
                  ", fflags=%" PRIu32 ", data=%" PRIi64 ", udata=%" PRIu64
                  ", ext[0]=%" PRIu64 ", ext[1]=%" PRIu64,
                  event.ident, event.filter, event.flags,
                  event.fflags, event.data, event.udata,
                  event.ext[0], event.ext[1]);
+#endif
 }
 
 void timer_kqueue_provider_t::on_event(int eventmask) {
@@ -94,7 +120,11 @@ void timer_kqueue_provider_t::on_event(int eventmask) {
     while (!got_short_res) {
         int res;
         do {
+#ifdef __FreeBSD__
+            res = kevent64(kq_fd_, nullptr, 0, events, num_events, &timeout);
+#else
             res = kevent64(kq_fd_, nullptr, 0, events, num_events, 0, &timeout);
+#endif
         } while (res == -1 && get_errno() == EINTR);
 
         guarantee_err(res != -1, "kevent64 failed when reading timer");

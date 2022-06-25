@@ -4,6 +4,11 @@
 
 #include "arch/runtime/event_queue.hpp"
 
+#ifdef __FreeBSD__
+#define kevent64_s kevent
+#define kevent64   kevent
+#endif
+
 struct timer_provider_callback_t;
 
 // This uses a kqueue to basically act like a Linux timerfd.  This isn't designed to run on kqueue.

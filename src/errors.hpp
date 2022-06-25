@@ -14,7 +14,7 @@
 #endif
 
 #ifndef DISABLE_BREAKPOINTS
-#ifdef __linux__
+#if defined __linux__ || defined __FreeBSD__
 #if defined __i386 || defined __x86_64
 #define BREAKPOINT __asm__ volatile ("int3")
 #else   /* not x86/amd64 */

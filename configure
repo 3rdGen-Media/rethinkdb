@@ -22,7 +22,7 @@ init () {
     min_nmake_version=14.0
     min_cl_version=19.0
 
-    must_fetch_list='quickjs'
+    must_fetch_list=''
     please_fetch_list="gtest re2 $must_fetch_list"
 
     optional_libs="gtest termcap boost_system"
@@ -83,6 +83,11 @@ configure_unixlike () {
     case "${MACHINE#*-}" in
         *apple-darwin*)
             var OS "Darwin"
+            default_allocator=$default_allocator_osx
+            var PTHREAD_LIBS "" ;
+            var RT_LIBS "" ;;
+        *freebsd*)
+            var OS "FreeBSD"
             default_allocator=$default_allocator_osx
             var PTHREAD_LIBS "" ;
             var RT_LIBS "" ;;
